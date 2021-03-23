@@ -59,22 +59,9 @@ void loop() {
 
   //testDisplaySeg();
 
-  if (Serial.available()) {
-    String ipt = Serial.readString();
-    ipt.trim();
-    Serial.print("Input: " + ipt + "       Value to shift: ");
-    if (ipt.length() == 1) {
-      output = intToNum(ipt.toInt(), true);
-      Serial.println(output, BIN);
-
-    }
-    for (int i = 0; i < DISPLAYS; i++) {
-      data[i] = output;
-    }
-    updateShiftRegister(data);
-  }
-
   Serial.println("Buttons: " + (String)digitalRead(btn1) + " " + (String)digitalRead(btn2) + " " + (String)digitalRead(btn3) + " " + (String)digitalRead(btn4));
+
+  //checkSerialInp()
 
   //printtime ();
 
@@ -91,6 +78,26 @@ void updateShiftRegister(byte data[]) {
   }
   digitalWrite(RCLK, HIGH);
 
+}
+
+bool checkSerialInp() {
+  if (Serial.available()) {
+    String ipt = Serial.readString();
+    ipt.trim();
+    Serial.print("Input: " + ipt + "       Value to shift: ");
+    if (ipt.length() == 1) {
+      output = intToNum(ipt.toInt(), true);
+      Serial.println(output, BIN);
+
+    }
+    for (int i = 0; i < DISPLAYS; i++) {
+      data[i] = output;
+    }
+    updateShiftRegister(data);
+    return true;
+  }
+
+  return false;
 }
 
 void testDisplay1() {
