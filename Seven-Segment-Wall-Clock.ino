@@ -6,9 +6,15 @@
   2021-03-23
 */
 
+/* -------------------------------------------
+  LIBRARIES
+  -------------------------------------------*/
 #include <Wire.h>
 #include <DS3231.h>
 
+/* -------------------------------------------
+  HARDWARE CONSTANTS
+  -------------------------------------------*/
 #define SRCLK 2
 #define RCLK 3
 #define SRCLR 10
@@ -21,11 +27,19 @@
 #define BUTTONS 4
 int btnPIN[] = {4, 5, 6, 7};
 
+/* -------------------------------------------
+  GLOBAL VARIABLES
+  -------------------------------------------*/
 RTClib myRTC;
 
 byte data[DISPLAYS];
 bool btnStates[BUTTONS];
 
+unsigned long lastUpdate = 0;
+
+/* -------------------------------------------
+  SETUP
+  -------------------------------------------*/
 void setup() {
   pinMode(RCLK, OUTPUT);
   pinMode(SRCLK, OUTPUT);
@@ -46,18 +60,20 @@ void setup() {
   Serial.begin(57600);
   Wire.begin();
 
-
   testDisplay1();
-
 }
 
-// the loop function runs over and over again forever
-void loop() {
+/* -------------------------------------------
+  LOOP
+  -------------------------------------------*/
+  void loop() {
+  unsigned long lastUpdate = millis();
+
+  unsigned long timeNow = millis();
 
   updateButtons();
 
   //testDisplaySeg();
-
 
   //checkSerialInp()
 
@@ -67,6 +83,9 @@ void loop() {
 
 }
 
+/* -------------------------------------------
+  FUNCTIONS
+  -------------------------------------------*/
 bool updateButtons() {
 
   for (int i = 0; i < BUTTONS; i++) {
