@@ -3,7 +3,7 @@
   Made by Anton Alfonsson and Daniel Broström
 
   Version 0.0
-  2021-03-14
+  2021-03-23
 */
 
 #include <Wire.h>
@@ -14,6 +14,11 @@
 #define SRCLR 10
 #define OE 11
 #define SRL 12
+
+#define btn1 4
+#define btn2 5
+#define btn3 6
+#define btn4 7
 
 #define DISPLAYS 4
 #define SEGMENTS 8
@@ -29,6 +34,11 @@ void setup() {
   pinMode(SRCLR, OUTPUT);
   pinMode(OE, OUTPUT);
   pinMode(SRL, OUTPUT);
+
+  pinMode(btn1, INPUT_PULLUP);
+  pinMode(btn2, INPUT_PULLUP);
+  pinMode(btn3, INPUT_PULLUP);
+  pinMode(btn4, INPUT_PULLUP);
 
 
   digitalWrite(OE, LOW);
@@ -47,7 +57,7 @@ void setup() {
 // the loop function runs over and over again forever
 void loop() {
 
-  testDisplaySeg();
+  //testDisplaySeg();
 
   if (Serial.available()) {
     String ipt = Serial.readString();
@@ -64,6 +74,7 @@ void loop() {
     updateShiftRegister(data);
   }
 
+  Serial.println("Buttons: " + (String)digitalRead(btn1) + " " + (String)digitalRead(btn2) + " " + (String)digitalRead(btn3) + " " + (String)digitalRead(btn4));
 
   //printtime ();
 
@@ -100,7 +111,7 @@ void testDisplay1() {
     Serial.println(output, BIN);
 
     for (int i = 0; i < DISPLAYS; i++) {
-    data[i] = output;
+      data[i] = output;
     }
     updateShiftRegister(data);
     delay(500);
