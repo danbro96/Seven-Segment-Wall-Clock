@@ -31,6 +31,15 @@ int btnPIN[] = {4, 5, 6, 7};
   GLOBAL VARIABLES
   -------------------------------------------*/
 RTClib myRTC;
+DS3231 Clock;
+
+byte Year;
+byte Month;
+byte Date;
+byte DoW;
+byte Hour;
+byte Minute;
+byte Second;
 
 byte data[DISPLAYS];
 bool btnStates[BUTTONS];
@@ -84,10 +93,9 @@ void loop() {
     updateShiftRegister(data);
   }
 
-
-  //testDisplaySeg();
-
-  //checkSerialInp()
+  if (checkSerialInp()){
+      Serial.println("Done");
+  }
 
   delay(10);
 
@@ -96,6 +104,36 @@ void loop() {
 /* -------------------------------------------
   FUNCTIONS
   -------------------------------------------*/
+int intToNum(int inp, bool dot) {
+  int extra = 0;
+  if (dot) {
+    extra = 128;
+  }
+  switch (inp) {
+    case 0:
+      return  0x3F + extra;
+    case 1:
+      return  0x06 + extra;
+    case 2:
+      return  0x5B + extra;
+    case 3:
+      return  0x4F + extra;
+    case 4:
+      return  0x66 + extra;
+    case 5:
+      return  0x6D + extra;
+    case 6:
+      return  0x7D + extra;
+    case 7:
+      return  0x07 + extra;
+    case 8:
+      return  0x7F + extra;
+    case 9:
+      return  0x6F + extra;
+    default:
+      return  0x00 + extra;
+  }
+}
 
 void timeToData(DateTime now) {
   int hour = now.hour();
@@ -104,25 +142,15 @@ void timeToData(DateTime now) {
   data[2] = intToNum(floor(hour % 10), true);
   data[1] = intToNum(floor(minute / 10), false);
   data[0] = intToNum(floor(minute % 10), false);
-
 }
 
 String timeToStr(DateTime now) {
   int hour = now.hour();
   int minute = now.minute();
-  String timeStr = "";
-  if (hour < 10) {
-    timeStr = "0";
-  }
-  timeStr = timeStr + (String)hour + ":";
-  if (minute < 10) {
-    timeStr = "0";
-  }
-  timeStr = timeStr + (String)minute;
-  return timeStr;
+  return (String)(int)floor(hour / 10) + (String)(int)floor(hour % 10) + ":" + (String)(int)floor(minute / 10) + (String)(int)floor(minute % 10);
 }
-bool updateButtons() {
 
+bool updateButtons() {
   for (int i = 0; i < BUTTONS; i++) {
     btnStates[i] = digitalRead(btnPIN[i]);
     //Serial.print("Button " + (String)i + ": " + (String)btnStates[i] + "     ");
@@ -141,29 +169,81 @@ void updateShiftRegister(byte data[]) {
     shiftOut(SRL, SRCLK, MSBFIRST, data[i]);
   }
   digitalWrite(RCLK, HIGH);
-
 }
 
 bool checkSerialInp() {
   if (Serial.available()) {
-    byte output;
-    String ipt = Serial.readString();
-    ipt.trim();
-    Serial.print("Input: " + ipt + "       Value to shift: ");
-    if (ipt.length() == 1) {
-      output = intToNum(ipt.toInt(), true);
-      Serial.println(output, BIN);
+    GetDateStuff(Year, Month, Date, DoW, Hour, Minute, Second);
 
-    }
-    for (int i = 0; i < DISPLAYS; i++) {
-      data[i] = output;
-    }
-    updateShiftRegister(data);
+    Clock.setClockMode(false);  // set to 24h
+    //setClockMode(true); // set to 12h
+
+    Clock.setYear(Year);
+    Clock.setMonth(Month);
+    Clock.setDate(Date);
+    Clock.setDoW(DoW);
+    Clock.setHour(Hour);
+    Clock.setMinute(Minute);
+    Clock.setSecond(Second);
+
     return true;
   }
 
   return false;
 }
+
+void GetDateStuff(byte& Year, byte& Month, byte& Day, byte& DoW, byte& Hour, byte& Minute, byte& Second) {
+  // Call this if you notice something coming in on
+  // the serial port. The stuff coming in should be in
+  // the order YYMMDDwHHMMSS, with an 'x' at the end.
+  boolean GotString = false;
+  char InChar;
+  byte Temp1, Temp2;
+  char InString[20];
+
+  byte j = 0;
+  while (!GotString) {
+    if (Serial.available()) {
+      InChar = Serial.read();
+      InString[j] = InChar;
+      j += 1;
+      if (InChar == 'x') {
+        GotString = true;
+      }
+    }
+  }
+  Serial.println(InString);
+  // Read Year first
+  Temp1 = (byte)InString[0] - 48;
+  Temp2 = (byte)InString[1] - 48;
+  Year = Temp1 * 10 + Temp2;
+  // now month
+  Temp1 = (byte)InString[2] - 48;
+  Temp2 = (byte)InString[3] - 48;
+  Month = Temp1 * 10 + Temp2;
+  // now date
+  Temp1 = (byte)InString[4] - 48;
+  Temp2 = (byte)InString[5] - 48;
+  Day = Temp1 * 10 + Temp2;
+  // now Day of Week
+  DoW = (byte)InString[6] - 48;
+  // now Hour
+  Temp1 = (byte)InString[7] - 48;
+  Temp2 = (byte)InString[8] - 48;
+  Hour = Temp1 * 10 + Temp2;
+  // now Minute
+  Temp1 = (byte)InString[9] - 48;
+  Temp2 = (byte)InString[10] - 48;
+  Minute = Temp1 * 10 + Temp2;
+  // now Second
+  Temp1 = (byte)InString[11] - 48;
+  Temp2 = (byte)InString[12] - 48;
+  Second = Temp1 * 10 + Temp2;
+}
+
+/* -------------------------------------------
+  NOT USED
+  -------------------------------------------*/
 
 void testDisplay1() {
   Serial.println("Running Test 1");
@@ -235,35 +315,4 @@ void printtime () {
   Serial.print("s = ");
   Serial.print(now.unixtime() / 86400L);
   Serial.println("d");
-}
-
-int intToNum(int inp, bool dot) {
-  int extra = 0;
-  if (dot) {
-    extra = 128;
-  }
-  switch (inp) {
-    case 0:
-      return  0x3F + extra;
-    case 1:
-      return  0x06 + extra;
-    case 2:
-      return  0x5B + extra;
-    case 3:
-      return  0x4F + extra;
-    case 4:
-      return  0x66 + extra;
-    case 5:
-      return  0x6D + extra;
-    case 6:
-      return  0x7D + extra;
-    case 7:
-      return  0x07 + extra;
-    case 8:
-      return  0x7F + extra;
-    case 9:
-      return  0x6F + extra;
-    default:
-      return  0x00 + extra;
-  }
 }
