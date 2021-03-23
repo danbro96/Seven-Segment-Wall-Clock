@@ -15,18 +15,16 @@
 #define OE 11
 #define SRL 12
 
-#define btn1 4
-#define btn2 5
-#define btn3 6
-#define btn4 7
-
 #define DISPLAYS 4
 #define SEGMENTS 8
 
+#define BUTTONS 4
+int btnPIN[] = {4, 5, 6, 7};
+
 RTClib myRTC;
 
-byte output;
 byte data[DISPLAYS];
+bool btnStates[BUTTONS];
 
 void setup() {
   pinMode(RCLK, OUTPUT);
@@ -35,11 +33,9 @@ void setup() {
   pinMode(OE, OUTPUT);
   pinMode(SRL, OUTPUT);
 
-  pinMode(btn1, INPUT_PULLUP);
-  pinMode(btn2, INPUT_PULLUP);
-  pinMode(btn3, INPUT_PULLUP);
-  pinMode(btn4, INPUT_PULLUP);
-
+  for (int i = 0; i < BUTTONS; i++) {
+    pinMode(btnPIN[i], INPUT_PULLUP);
+  }
 
   digitalWrite(OE, LOW);
 
@@ -50,6 +46,7 @@ void setup() {
   Serial.begin(57600);
   Wire.begin();
 
+
   testDisplay1();
 
 }
@@ -57,9 +54,10 @@ void setup() {
 // the loop function runs over and over again forever
 void loop() {
 
+  updateButtons();
+
   //testDisplaySeg();
 
-  Serial.println("Buttons: " + (String)digitalRead(btn1) + " " + (String)digitalRead(btn2) + " " + (String)digitalRead(btn3) + " " + (String)digitalRead(btn4));
 
   //checkSerialInp()
 
@@ -67,6 +65,18 @@ void loop() {
 
   delay(10);
 
+}
+
+bool updateButtons() {
+
+  for (int i = 0; i < BUTTONS; i++) {
+    btnStates[i] = digitalRead(btnPIN[i]);
+    Serial.print("Button " + (String)i + ": " + (String)btnStates[i] + "     ");
+  }
+  Serial.println("");
+
+  //Return true if some state has changed?
+  return true;
 }
 
 void updateShiftRegister(byte data[]) {
@@ -82,6 +92,7 @@ void updateShiftRegister(byte data[]) {
 
 bool checkSerialInp() {
   if (Serial.available()) {
+    byte output;
     String ipt = Serial.readString();
     ipt.trim();
     Serial.print("Input: " + ipt + "       Value to shift: ");
@@ -103,7 +114,7 @@ bool checkSerialInp() {
 void testDisplay1() {
   Serial.println("Running Test 1");
 
-  output = intToNum(-1, false);
+  byte output = intToNum(-1, false);
   Serial.print("Setting all LOW ");
   Serial.println(output, BIN);
   for (int i = 0; i < DISPLAYS; i++) {
