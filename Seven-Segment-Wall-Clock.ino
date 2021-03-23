@@ -35,6 +35,8 @@ RTClib myRTC;
 byte data[DISPLAYS];
 bool btnStates[BUTTONS];
 
+int updateInterval = 1000 * 1; //Milliseconds
+
 unsigned long lastUpdate = 0;
 
 /* -------------------------------------------
@@ -60,24 +62,32 @@ void setup() {
   Serial.begin(57600);
   Wire.begin();
 
-  testDisplay1();
+  //testDisplay1();
 }
 
 /* -------------------------------------------
   LOOP
   -------------------------------------------*/
-  void loop() {
-  unsigned long lastUpdate = millis();
-
-  unsigned long timeNow = millis();
+void loop() {
 
   updateButtons();
+
+  if (millis() - lastUpdate > updateInterval) {
+    lastUpdate = millis();
+
+    DateTime now = myRTC.now();
+
+    timeToData(now);
+
+    Serial.println("Updating time to: " + timeToStr(now));
+
+    updateShiftRegister(data);
+  }
+
 
   //testDisplaySeg();
 
   //checkSerialInp()
-
-  //printtime ();
 
   delay(10);
 
@@ -86,13 +96,38 @@ void setup() {
 /* -------------------------------------------
   FUNCTIONS
   -------------------------------------------*/
+
+void timeToData(DateTime now) {
+  int hour = now.hour();
+  int minute = now.minute();
+  data[3] = intToNum(floor(hour / 10), false);
+  data[2] = intToNum(floor(hour % 10), true);
+  data[1] = intToNum(floor(minute / 10), false);
+  data[0] = intToNum(floor(minute % 10), false);
+
+}
+
+String timeToStr(DateTime now) {
+  int hour = now.hour();
+  int minute = now.minute();
+  String timeStr = "";
+  if (hour < 10) {
+    timeStr = "0";
+  }
+  timeStr = timeStr + (String)hour + ":";
+  if (minute < 10) {
+    timeStr = "0";
+  }
+  timeStr = timeStr + (String)minute;
+  return timeStr;
+}
 bool updateButtons() {
 
   for (int i = 0; i < BUTTONS; i++) {
     btnStates[i] = digitalRead(btnPIN[i]);
-    Serial.print("Button " + (String)i + ": " + (String)btnStates[i] + "     ");
+    //Serial.print("Button " + (String)i + ": " + (String)btnStates[i] + "     ");
   }
-  Serial.println("");
+  //Serial.println("");
 
   //Return true if some state has changed?
   return true;
