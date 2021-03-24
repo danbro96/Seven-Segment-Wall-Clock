@@ -37,6 +37,8 @@ bool btnStateChange[BUTTONS];
 
 int updateInterval = 500; //Milliseconds
 
+int mode = 0; //0 = Normal, 1 = Set time
+
 unsigned long lastUpdate = 0;
 
 /* -------------------------------------------
@@ -96,7 +98,7 @@ void loop() {
   if (millis() - lastUpdate > updateInterval) {
     lastUpdate = millis();
 
-    Serial.println("Temp: " + (String)rtc.getTemperature());
+    //Serial.println("Temp: " + (String)rtc.getTemperature());
 
     DateTime nowRTC = rtc.now();
     if (rtc.lostPower()) {
@@ -197,7 +199,7 @@ bool checkSerialInp() {
     if (cmdStr.equals("sdate") && varStr.length() == 12) {
       Serial.println(", Set new RTC time!");
 
-      DateTime current = GetDateStuff(varStr);
+      DateTime current = getSerialDate(varStr);
 
       rtc.adjust(current);
       delay(100);
@@ -209,7 +211,7 @@ bool checkSerialInp() {
   return false;
 }
 
-DateTime GetDateStuff(String InString) {
+DateTime getSerialDate(String InString) {
   // Call this if you notice something coming in on
   // the serial port. The stuff coming in should be in
   // the order of the incoming string must be YYMMDDHHMMSS
@@ -251,7 +253,7 @@ DateTime GetDateStuff(String InString) {
 }
 
 /* -------------------------------------------
-  NOT USED
+  TEST FUNCTIONS
   -------------------------------------------*/
 
 void testDisplay1() {
