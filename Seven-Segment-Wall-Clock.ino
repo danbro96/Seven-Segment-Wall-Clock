@@ -88,7 +88,7 @@ void setup() {
   -------------------------------------------*/
 void loop() {
 
-  updateButtons();
+  checkButtons();
 
   if (checkSerialInp()) {
     Serial.println("Serial input success!");
@@ -103,6 +103,7 @@ void loop() {
     DateTime nowRTC = rtc.now();
     if (rtc.lostPower()) {
       digitalWrite(OE, (nowRTC.second() % 2) == 0);
+      Serial.println("Set new time!");
     } else {
       Serial.println("Displaying time: " + timeToStr(nowRTC));
 
@@ -165,7 +166,7 @@ String timeToStr(DateTime timeNow) {
   return (String)(int)floor(hour / 10) + (String)(int)floor(hour % 10) + ":" + (String)(int)floor(minute / 10) + (String)(int)floor(minute % 10);
 }
 
-void updateButtons() {
+void checkButtons() {
   for (int i = 0; i < BUTTONS; i++) {
     bool newState = !digitalRead(btnPIN[i]);
     btnStateChange[i] = newState != btnState[i];
@@ -173,6 +174,72 @@ void updateButtons() {
     if (btnStateChange[i]) {
       Serial.println("Button " + (String)i + " changed state to: " + (String)btnState[i]);
     }
+  }
+
+  if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
+    Serial.println("Entering buttonbased time-setting!");
+    setNewTime(rtc.now());
+  }
+}
+
+DateTime setNewTime(DateTime timeNow) {
+  //Make sure the middle buttons are unpressed before proceeding
+  while (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
+    digitalWrite(OE, ((millis() / 1000) % 2) == 0);
+    delay(500);
+  }
+
+  int hour = timeNow.hour();
+  int minute = timeNow.minute();
+  int var = 0;
+  Serial.println("Entered");
+
+  while (true) {
+
+    if (!btnState[0] && !btnState[1] && btnState[2] && !btnState[3]) {
+      var = 0;
+      Serial.println("Changing Hour");
+
+    } else if (!btnState[0] && btnState[1] && !btnState[2] && !btnState[3]) {
+      var = 1;
+      Serial.println("Changing Minute");
+    }
+
+    //Change hour
+    if (var == 0) {
+      if (!btnState[0] && !btnState[1] && !btnState[2] && btnState[3]) {
+        hour ++;
+        Serial.println("Hour: " + (String)hour);
+      } else if (btnState[0] && !btnState[1] && !btnState[2] && !btnState[3]) {
+        hour--;
+        Serial.println("Hour: " + (String)hour);
+      }
+
+      //Change minute
+    } else if (var == 1) {
+      if (!btnState[0] && !btnState[1] && !btnState[2] && btnState[3]) {
+        minute ++;
+        Serial.println("Minute: " + (String)minute);
+      } else if (btnState[0] && !btnState[1] && !btnState[2] && !btnState[3]) {
+        minute--;
+        Serial.println("Minute: " + (String)minute);
+      }
+    }
+
+    DateTime temp = DateTime(2021, 01, 01, hour, minute, 00);
+
+    //If middle buttons are pressed, leave the menu.
+    if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
+      digitalWrite(OE, LOW);
+      return temp;
+    }
+
+    digitalWrite(OE, ((millis() / 1000) % 2) == 0);
+
+    timeToData(temp);
+    updateShiftRegister(data);
+
+    delay(10);
   }
 }
 
