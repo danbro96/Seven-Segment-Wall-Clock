@@ -187,13 +187,16 @@ void updateShiftRegister(byte data[]) {
 }
 
 bool checkSerialInp() {
+// Checks for serial commands.
+// The inputs must be structured in the form *command*:*variables*x, example: sDate:210101235900x
+  
   if (Serial.available()) {
     String inStr = Serial.readString();
     inStr.trim();
-    String cmdStr = inStr.substring(0, 5);
+    String cmdStr = inStr.substring(0, inStr.lastIndexOf(":"));
     Serial.print("Command: " + cmdStr);
     cmdStr.toLowerCase();
-    String varStr = inStr.substring(6, inStr.lastIndexOf("x"));
+    String varStr = inStr.substring(inStr.lastIndexOf(":") + 1, inStr.lastIndexOf("x"));
     Serial.print(", with " + (String)varStr.length() + " variables: " + varStr);
 
     if (cmdStr.equals("sdate") && varStr.length() == 12) {
