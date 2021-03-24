@@ -35,7 +35,7 @@ byte data[DISPLAYS];
 bool btnState[BUTTONS];
 bool btnStateChange[BUTTONS];
 
-int updateInterval = 1000 * 1; //Milliseconds
+int updateInterval = 500; //Milliseconds
 
 unsigned long lastUpdate = 0;
 
@@ -77,7 +77,7 @@ void setup() {
     // January 21, 2014 at 3am you would call:
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
   }
-  //testDisplay1();
+  testDisplaySeg();
   Serial.println("Finished initialising.");
 }
 
@@ -142,6 +142,8 @@ int intToNum(int inp, bool dot) {
 void timeToData(DateTime timeNow) {
   int hour = timeNow.hour();
   int minute = timeNow.minute();
+  int second = timeNow.second();
+
   data[3] = intToNum(floor(hour / 10), false);
   data[2] = intToNum(floor(hour % 10), true);
   data[1] = intToNum(floor(minute / 10), false);
@@ -289,7 +291,7 @@ void testDisplaySeg() {
     delay(1);
     digitalWrite(RCLK, HIGH);
     digitalWrite(SRCLK, HIGH);
-    delay(200);
+    delay(20);
   }
 
   Serial.println("Done with test");
