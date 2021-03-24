@@ -9,9 +9,9 @@
 /* -------------------------------------------
   LIBRARIES
   -------------------------------------------*/
-#include <Wire.h>
-#include <DS3231.h>
-
+//#include <Wire.h>
+//#include <DS3231.h>
+#include <RTClib.h>
 /* -------------------------------------------
   HARDWARE CONSTANTS
   -------------------------------------------*/
@@ -30,8 +30,9 @@ int btnPIN[] = {4, 5, 6, 7};
 /* -------------------------------------------
   GLOBAL VARIABLES
   -------------------------------------------*/
-RTClib myRTC;
-DS3231 Clock;
+//RTClib myRTC;
+//DS3231 Clock;
+RTC_DS3231 rtc;
 
 byte Year;
 byte Month;
@@ -69,9 +70,25 @@ void setup() {
   digitalWrite(SRCLR, HIGH);
 
   Serial.begin(57600);
-  Wire.begin();
+  while (!Serial); // wait for serial port to connect. Needed for native USB
 
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+    abort();
+  }
+
+  if (rtc.lostPower()) {
+    Serial.println("RTC lost power, let's set the time!");
+    // When time needs to be set on a new device, or after a power loss, the
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  }
   //testDisplay1();
+  Serial.println("Finished initialising.");
 }
 
 /* -------------------------------------------
@@ -84,17 +101,16 @@ void loop() {
   if (millis() - lastUpdate > updateInterval) {
     lastUpdate = millis();
 
-    DateTime now = myRTC.now();
+    DateTime nowRTC = rtc.now();
+    timeToData(nowRTC);
 
-    timeToData(now);
-
-    Serial.println("Updating time to: " + timeToStr(now));
+    Serial.println("Displaying time: " + timeToStr(nowRTC));
 
     updateShiftRegister(data);
   }
 
-  if (checkSerialInp()){
-      Serial.println("Done");
+  if (checkSerialInp()) {
+    Serial.println("Updated RTC time through Serial!");
   }
 
   delay(10);
@@ -173,18 +189,10 @@ void updateShiftRegister(byte data[]) {
 
 bool checkSerialInp() {
   if (Serial.available()) {
-    GetDateStuff(Year, Month, Date, DoW, Hour, Minute, Second);
+    DateTime current = GetDateStuff(Year, Month, Date, Hour, Minute, Second);
 
-    Clock.setClockMode(false);  // set to 24h
-    //setClockMode(true); // set to 12h
-
-    Clock.setYear(Year);
-    Clock.setMonth(Month);
-    Clock.setDate(Date);
-    Clock.setDoW(DoW);
-    Clock.setHour(Hour);
-    Clock.setMinute(Minute);
-    Clock.setSecond(Second);
+    rtc.adjust(current);
+    delay(100);
 
     return true;
   }
@@ -192,10 +200,10 @@ bool checkSerialInp() {
   return false;
 }
 
-void GetDateStuff(byte& Year, byte& Month, byte& Day, byte& DoW, byte& Hour, byte& Minute, byte& Second) {
+DateTime GetDateStuff(byte& Year, byte& Month, byte& Day, byte& Hour, byte& Minute, byte& Second) {
   // Call this if you notice something coming in on
   // the serial port. The stuff coming in should be in
-  // the order YYMMDDwHHMMSS, with an 'x' at the end.
+  // the order YYMMDDHHMMSS, with an 'x' at the end.
   boolean GotString = false;
   char InChar;
   byte Temp1, Temp2;
@@ -209,10 +217,11 @@ void GetDateStuff(byte& Year, byte& Month, byte& Day, byte& DoW, byte& Hour, byt
       j += 1;
       if (InChar == 'x') {
         GotString = true;
+        Serial.readString();
       }
     }
   }
-  Serial.println(InString);
+  Serial.println("Input: " + (String)InString);
   // Read Year first
   Temp1 = (byte)InString[0] - 48;
   Temp2 = (byte)InString[1] - 48;
@@ -225,20 +234,20 @@ void GetDateStuff(byte& Year, byte& Month, byte& Day, byte& DoW, byte& Hour, byt
   Temp1 = (byte)InString[4] - 48;
   Temp2 = (byte)InString[5] - 48;
   Day = Temp1 * 10 + Temp2;
-  // now Day of Week
-  DoW = (byte)InString[6] - 48;
   // now Hour
-  Temp1 = (byte)InString[7] - 48;
-  Temp2 = (byte)InString[8] - 48;
+  Temp1 = (byte)InString[6] - 48;
+  Temp2 = (byte)InString[7] - 48;
   Hour = Temp1 * 10 + Temp2;
   // now Minute
-  Temp1 = (byte)InString[9] - 48;
-  Temp2 = (byte)InString[10] - 48;
+  Temp1 = (byte)InString[8] - 48;
+  Temp2 = (byte)InString[9] - 48;
   Minute = Temp1 * 10 + Temp2;
   // now Second
-  Temp1 = (byte)InString[11] - 48;
-  Temp2 = (byte)InString[12] - 48;
+  Temp1 = (byte)InString[10] - 48;
+  Temp2 = (byte)InString[11] - 48;
   Second = Temp1 * 10 + Temp2;
+
+  return DateTime(Year, Month, Day, Hour, Minute, Second);
 }
 
 /* -------------------------------------------
@@ -293,26 +302,4 @@ void testDisplaySeg() {
   }
 
   Serial.println("Done with test");
-}
-
-void printtime () {
-  DateTime now = myRTC.now();
-  Serial.print(now.year(), DEC);
-  Serial.print('/');
-  Serial.print(now.month(), DEC);
-  Serial.print('/');
-  Serial.print(now.day(), DEC);
-  Serial.print(' ');
-  Serial.print(now.hour(), DEC);
-  Serial.print(':');
-  Serial.print(now.minute(), DEC);
-  Serial.print(':');
-  Serial.print(now.second(), DEC);
-  Serial.println();
-
-  Serial.print(" since midnight 1/1/1970 = ");
-  Serial.print(now.unixtime());
-  Serial.print("s = ");
-  Serial.print(now.unixtime() / 86400L);
-  Serial.println("d");
 }
