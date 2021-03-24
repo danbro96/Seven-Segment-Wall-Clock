@@ -96,14 +96,17 @@ void loop() {
   if (millis() - lastUpdate > updateInterval) {
     lastUpdate = millis();
 
+    Serial.println("Temp: " + (String)rtc.getTemperature());
+
     DateTime nowRTC = rtc.now();
     if (rtc.lostPower()) {
       digitalWrite(OE, (nowRTC.second() % 2) == 0);
-    }
-    Serial.println("Displaying time: " + timeToStr(nowRTC));
+    } else {
+      Serial.println("Displaying time: " + timeToStr(nowRTC));
 
-    timeToData(nowRTC);
-    updateShiftRegister(data);
+      timeToData(nowRTC);
+      updateShiftRegister(data);
+    }
   }
 
   delay(10);
