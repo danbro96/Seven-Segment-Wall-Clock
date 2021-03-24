@@ -9,9 +9,8 @@
 /* -------------------------------------------
   LIBRARIES
   -------------------------------------------*/
-//#include <Wire.h>
-//#include <DS3231.h>
 #include <RTClib.h>
+
 /* -------------------------------------------
   HARDWARE CONSTANTS
   -------------------------------------------*/
@@ -30,17 +29,7 @@ int btnPIN[] = {4, 5, 6, 7};
 /* -------------------------------------------
   GLOBAL VARIABLES
   -------------------------------------------*/
-//RTClib myRTC;
-//DS3231 Clock;
 RTC_DS3231 rtc;
-
-byte Year;
-byte Month;
-byte Date;
-byte DoW;
-byte Hour;
-byte Minute;
-byte Second;
 
 byte data[DISPLAYS];
 bool btnStates[BUTTONS];
@@ -110,7 +99,7 @@ void loop() {
   }
 
   if (checkSerialInp()) {
-    Serial.println("Updated RTC time through Serial!");
+    Serial.println("Serial input success!");
   }
 
   delay(10);
@@ -151,18 +140,18 @@ int intToNum(int inp, bool dot) {
   }
 }
 
-void timeToData(DateTime now) {
-  int hour = now.hour();
-  int minute = now.minute();
+void timeToData(DateTime timeNow) {
+  int hour = timeNow.hour();
+  int minute = timeNow.minute();
   data[3] = intToNum(floor(hour / 10), false);
   data[2] = intToNum(floor(hour % 10), true);
   data[1] = intToNum(floor(minute / 10), false);
   data[0] = intToNum(floor(minute % 10), false);
 }
 
-String timeToStr(DateTime now) {
-  int hour = now.hour();
-  int minute = now.minute();
+String timeToStr(DateTime timeNow) {
+  int hour = timeNow.hour();
+  int minute = timeNow.minute();
   return (String)(int)floor(hour / 10) + (String)(int)floor(hour % 10) + ":" + (String)(int)floor(minute / 10) + (String)(int)floor(minute % 10);
 }
 
@@ -189,39 +178,42 @@ void updateShiftRegister(byte data[]) {
 
 bool checkSerialInp() {
   if (Serial.available()) {
-    DateTime current = GetDateStuff(Year, Month, Date, Hour, Minute, Second);
+    String inStr = Serial.readString();
+    inStr.trim();
+    String cmdStr = inStr.substring(0, 5);
+    Serial.print("Command: " + cmdStr);
+    cmdStr.toLowerCase();
+    String varStr = inStr.substring(6, inStr.lastIndexOf("x"));
+    Serial.print(", with " + (String)varStr.length() + " variables: " + varStr);
 
-    rtc.adjust(current);
-    delay(100);
+    if (cmdStr.equals("sdate") && varStr.length() == 12) {
+      Serial.println(", Set new RTC time!");
 
-    return true;
+      DateTime current = GetDateStuff(varStr);
+
+      rtc.adjust(current);
+      delay(100);
+      return true;
+    } else {
+      Serial.println(", Not recognized as a command!");
+    }
   }
-
   return false;
 }
 
-DateTime GetDateStuff(byte& Year, byte& Month, byte& Day, byte& Hour, byte& Minute, byte& Second) {
+DateTime GetDateStuff(String InString) {
   // Call this if you notice something coming in on
   // the serial port. The stuff coming in should be in
-  // the order YYMMDDHHMMSS, with an 'x' at the end.
-  boolean GotString = false;
-  char InChar;
-  byte Temp1, Temp2;
-  char InString[20];
+  // the order of the incoming string must be YYMMDDHHMMSS
+  byte Year;
+  byte Month;
+  byte Day;
+  byte Hour;
+  byte Minute;
+  byte Second;
 
-  byte j = 0;
-  while (!GotString) {
-    if (Serial.available()) {
-      InChar = Serial.read();
-      InString[j] = InChar;
-      j += 1;
-      if (InChar == 'x') {
-        GotString = true;
-        Serial.readString();
-      }
-    }
-  }
-  Serial.println("Input: " + (String)InString);
+  byte Temp1, Temp2;
+
   // Read Year first
   Temp1 = (byte)InString[0] - 48;
   Temp2 = (byte)InString[1] - 48;
