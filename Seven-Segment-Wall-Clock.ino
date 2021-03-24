@@ -32,7 +32,8 @@ int btnPIN[] = {4, 5, 6, 7};
 RTC_DS3231 rtc;
 
 byte data[DISPLAYS];
-bool btnStates[BUTTONS];
+bool btnState[BUTTONS];
+bool btnStateChange[BUTTONS];
 
 int updateInterval = 1000 * 1; //Milliseconds
 
@@ -87,23 +88,21 @@ void loop() {
 
   updateButtons();
 
-  if (millis() - lastUpdate > updateInterval) {
-    lastUpdate = millis();
-
-    DateTime nowRTC = rtc.now();
-    timeToData(nowRTC);
-
-    Serial.println("Displaying time: " + timeToStr(nowRTC));
-
-    updateShiftRegister(data);
-  }
-
   if (checkSerialInp()) {
     Serial.println("Serial input success!");
   }
 
-  delay(10);
+  if (millis() - lastUpdate > updateInterval) {
+    lastUpdate = millis();
 
+    DateTime nowRTC = rtc.now();
+    Serial.println("Displaying time: " + timeToStr(nowRTC));
+
+    timeToData(nowRTC);
+    updateShiftRegister(data);
+  }
+
+  delay(10);
 }
 
 /* -------------------------------------------
@@ -155,15 +154,15 @@ String timeToStr(DateTime timeNow) {
   return (String)(int)floor(hour / 10) + (String)(int)floor(hour % 10) + ":" + (String)(int)floor(minute / 10) + (String)(int)floor(minute % 10);
 }
 
-bool updateButtons() {
+void updateButtons() {
   for (int i = 0; i < BUTTONS; i++) {
-    btnStates[i] = digitalRead(btnPIN[i]);
-    //Serial.print("Button " + (String)i + ": " + (String)btnStates[i] + "     ");
+    bool newState = !digitalRead(btnPIN[i]);
+    btnStateChange[i] = newState != btnState[i];
+    btnState[i] = newState;
+    if (btnStateChange[i]) {
+      Serial.println("Button " + (String)i + " changed state to: " + (String)btnState[i]);
+    }
   }
-  //Serial.println("");
-
-  //Return true if some state has changed?
-  return true;
 }
 
 void updateShiftRegister(byte data[]) {
