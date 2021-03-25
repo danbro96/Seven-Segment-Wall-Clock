@@ -112,10 +112,11 @@ void loop() {
     }
   } else if (mode == SET_TIME) {
     switchMenu();
-    if (millis() - lastUpdate > updateInterval) {
+    if (millis() - lastUpdate > updateInterval / 2 || btnStateChange[0] || btnStateChange[3]) {
       lastUpdate = millis();
       changeNewTime();
     }
+    displayNewTime();
   }
   delay(10);
 }
@@ -139,15 +140,16 @@ void checkButtons() {
         mode = SET_TIME;
         newTime = rtc.now();
         menuItem = HOUR;
-        blinkDisplay(10, 5000);
+        blinkDisplay(5, 200);
+        break;
 
         //If middle buttons are pressed while in SET_TIME mode, enter NORMAL mode and adjust RTC time.
       }  else if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3] && mode == SET_TIME) {
         Serial.println("Leaving buttonbased time-setting. Sending new time to RTC!");
         mode = NORMAL;
         rtc.adjust(newTime);
-
         fancyBlink();
+        break;
       }
     }
   }
@@ -157,13 +159,16 @@ void checkButtons() {
   SET TIME FUNCTIONS
   -------------------------------------------*/
 void switchMenu() {
-  if (!btnState[0] && !btnState[1] && btnState[2] && !btnState[3]) {
-    menuItem = HOUR;
-    Serial.println("Changing Hour");
-
-  } else if (!btnState[0] && btnState[1] && !btnState[2] && !btnState[3]) {
-    menuItem = MINUTE;
-    Serial.println("Changing Minute");
+  if (!btnState[0] && !btnState[1] && btnState[2] && !btnState[3] && btnStateChange[2]) {
+    menuItem++;
+        if (menuItem > 1){
+      menuItem = 0;
+    }
+  } else if (!btnState[0] && btnState[1] && !btnState[2] && !btnState[3] && btnStateChange[1]) {
+    menuItem--;
+    if (menuItem < 0){
+      menuItem = 1;
+    }
   }
 }
 void changeNewTime() {
@@ -207,20 +212,14 @@ void changeNewTime() {
   }
 
   newTime = DateTime(2021, 01, 01, hour, minute, 00);
-
-  //If middle buttons are pressed, leave the menu.
-  //if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
-  // digitalWrite(OE, LOW);
-  //  return temp;
-  // }
-
+}
+void displayNewTime() {
   //digitalWrite(OE, ((millis() / 1000) % 2) == 0);
 
-  timeToData(newTime, ((millis() / 1000) % 2) == 0);
+
+  bool blinkSeg = ((millis() / 100) % 3) == 0;
+  timeToData(newTime, ((millis() / 1000) % 2) == 0, !(blinkSeg && menuItem == HOUR), !(blinkSeg && menuItem == HOUR), !(blinkSeg && menuItem == MINUTE), !(blinkSeg && menuItem == MINUTE));
   updateShiftRegister(data);
-
-  delay(10);
-
 }
 /* -------------------------------------------
   TIME DISPLAY FUNCTIONS
@@ -284,7 +283,35 @@ void timeToData(DateTime timeNow, bool dot) {
   data[1] = intToNum(floor(minute / 10), dot);
   data[0] = intToNum(floor(minute % 10), dot);
 }
+void timeToData(DateTime timeNow, bool dot, bool e0, bool e1, bool e2, bool e3) {
+  int hour = timeNow.hour();
+  int minute = timeNow.minute();
+  int second = timeNow.second();
 
+  if (e0) {
+    data[3] = intToNum(floor(hour / 10), dot);
+  } else {
+    data[3] = intToNum(-1, dot);
+  }
+
+  if (e1) {
+    data[2] = intToNum(floor(hour % 10), dot);
+  } else {
+    data[2] = intToNum(-1, dot);
+  }
+
+  if (e2) {
+    data[1] = intToNum(floor(minute / 10), dot);
+  } else {
+    data[1] = intToNum(-1, dot);
+  }
+
+  if (e3) {
+    data[0] = intToNum(floor(minute % 10), dot);
+  } else {
+    data[0] = intToNum(-1, dot);
+  }
+}
 String timeToStr(DateTime timeNow) {
   int hour = timeNow.hour();
   int minute = timeNow.minute();
@@ -392,15 +419,15 @@ void blinkDisplay(int freq, int duration) {
   //duration is time in ms
 
   int start = millis();
-  while (start - millis() < duration) {
+  while (millis() - start < duration) {
     digitalWrite(OE, HIGH);
-    delay(1000 * 2 / freq);
+    delay(1000 / freq / 2);
     digitalWrite(OE, LOW);
-    delay(1000 * 2 / freq);
+    delay(1000 / freq / 2);
   }
 }
 void testDisplayNums() {
-//Loop through all numbers
+  //Loop through all numbers shown on all displays simultaneously
   Serial.println("Running Test 1: Numbers");
 
   for (int i = -1; i < 10; i++) {
@@ -418,6 +445,7 @@ void testDisplayNums() {
 }
 
 void testDisplaySeg() {
+  //Loop through all display segments in order
   Serial.println("Running Test 2: Segments");
 
   digitalWrite(SRCLR, LOW);
