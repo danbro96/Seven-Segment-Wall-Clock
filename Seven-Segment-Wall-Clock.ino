@@ -35,7 +35,7 @@ byte data[DISPLAYS];
 bool btnState[BUTTONS];
 bool btnStateChange[BUTTONS];
 
-int updateInterval = 500; //Milliseconds
+int updateInterval = 1000; //Milliseconds
 
 
 #define NORMAL 0
@@ -105,15 +105,17 @@ void loop() {
   if (rtc.lostPower()) {
     digitalWrite(OE, ((millis() / 1000) % 2) == 0);
     Serial.println("Set new time!");
+    
   } else if (mode == NORMAL) {
     if (millis() - lastUpdate > updateInterval) {
       lastUpdate = millis();
       //Serial.println("Temp: " + (String)rtc.getTemperature());
       displayCurrentTime();
     }
+    
   } else if (mode == SET_TIME) {
     switchMenu();
-    if (millis() - lastUpdate > updateInterval / 2 || btnStateChange[0] || btnStateChange[3]) {
+    if (millis() - lastUpdate > updateInterval / 4 || btnStateChange[0] || btnStateChange[3]) {
       lastUpdate = millis();
       changeNewTime();
     }
