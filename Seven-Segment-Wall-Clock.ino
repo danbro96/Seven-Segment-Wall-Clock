@@ -133,25 +133,21 @@ void checkButtons() {
     if (btnStateChange[i]) {
       Serial.println("Button " + (String)i + " changed state to: " + (String)btnState[i]);
 
+      //If middle buttons are pressed while in NORMAL mode, enter SET_TIME mode.
       if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3] && (mode == NORMAL || rtc.lostPower())) {
         Serial.println("Entering buttonbased time-setting!");
-        digitalWrite(OE, LOW);
         mode = SET_TIME;
         newTime = rtc.now();
         menuItem = HOUR;
+        blinkDisplay(10, 5000);
 
+        //If middle buttons are pressed while in SET_TIME mode, enter NORMAL mode and adjust RTC time.
       }  else if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3] && mode == SET_TIME) {
         Serial.println("Leaving buttonbased time-setting. Sending new time to RTC!");
         mode = NORMAL;
         rtc.adjust(newTime);
 
-        //Fancy blink animation
-        for (int y = 100; 20 < y; y = y - 20) {
-          digitalWrite(OE, HIGH);
-          delay(y);
-          digitalWrite(OE, LOW);
-          delay(y);
-        }
+        fancyBlink();
       }
     }
   }
@@ -324,10 +320,12 @@ bool checkSerialInp() {
 
     if (cmdStr.equals("sdate") && varStr.length() == 12) {
       Serial.println(", Set new RTC time!");
+      mode = NORMAL;
 
       DateTime current = getSerialDate(varStr);
 
       rtc.adjust(current);
+      fancyBlink();
       delay(100);
       return true;
     } else {
@@ -379,23 +377,34 @@ DateTime getSerialDate(String InString) {
 }
 
 /* -------------------------------------------
-  TEST FUNCTIONS
+  ANIMATION FUNCTIONS
   -------------------------------------------*/
-
-void testDisplay1() {
-  Serial.println("Running Test 1");
-
-  byte output = intToNum(-1, false);
-  Serial.print("Setting all LOW ");
-  Serial.println(output, BIN);
-  for (int i = 0; i < DISPLAYS; i++) {
-    data[i] = output;
+void fancyBlink() {
+  for (int y = 100; 20 < y; y = y - 20) {
+    digitalWrite(OE, HIGH);
+    delay(y);
+    digitalWrite(OE, LOW);
+    delay(y);
   }
-  updateShiftRegister(data);
-  delay(1000);
+}
+void blinkDisplay(int freq, int duration) {
+  //freq is blink frequency in Hz
+  //duration is time in ms
+
+  int start = millis();
+  while (start - millis() < duration) {
+    digitalWrite(OE, HIGH);
+    delay(1000 * 2 / freq);
+    digitalWrite(OE, LOW);
+    delay(1000 * 2 / freq);
+  }
+}
+void testDisplayNums() {
+//Loop through all numbers
+  Serial.println("Running Test 1: Numbers");
 
   for (int i = -1; i < 10; i++) {
-    output = intToNum(i, (i % 2) == 0);
+    byte output = intToNum(i, (i % 2) == 0);
     Serial.print("Setting all to " + (String) i + " ");
     Serial.println(output, BIN);
 
