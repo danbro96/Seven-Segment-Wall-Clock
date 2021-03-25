@@ -37,6 +37,7 @@ bool btnStateChange[BUTTONS];
 
 int updateInterval = 500; //Milliseconds
 
+
 #define NORMAL 0
 #define SET_TIME 1
 int mode = NORMAL;
@@ -48,7 +49,7 @@ DateTime newTime;
 int menuItem = HOUR;
 
 unsigned long lastUpdate = 0;
-
+unsigned long lastInput = 0;
 /* -------------------------------------------
   SETUP
   -------------------------------------------*/
@@ -132,6 +133,7 @@ void checkButtons() {
   }
   for (int i = 0; i < BUTTONS; i++) {
     if (btnStateChange[i]) {
+      lastInput = millis();
       Serial.println("Button " + (String)i + " changed state to: " + (String)btnState[i]);
 
       //If middle buttons are pressed while in NORMAL mode, enter SET_TIME mode.
@@ -153,6 +155,12 @@ void checkButtons() {
       }
     }
   }
+  if (millis() - lastInput > 10000 && mode == SET_TIME) {
+    Serial.println("Leaving buttonbased time-setting due to inactivity. Sending new time to RTC!");
+    mode = NORMAL;
+    rtc.adjust(newTime);
+    fancyBlink();
+  }
 }
 
 /* -------------------------------------------
@@ -161,12 +169,12 @@ void checkButtons() {
 void switchMenu() {
   if (!btnState[0] && !btnState[1] && btnState[2] && !btnState[3] && btnStateChange[2]) {
     menuItem++;
-        if (menuItem > 1){
+    if (menuItem > 1) {
       menuItem = 0;
     }
   } else if (!btnState[0] && btnState[1] && !btnState[2] && !btnState[3] && btnStateChange[1]) {
     menuItem--;
-    if (menuItem < 0){
+    if (menuItem < 0) {
       menuItem = 1;
     }
   }
