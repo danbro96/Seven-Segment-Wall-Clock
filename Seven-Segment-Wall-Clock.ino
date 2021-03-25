@@ -37,7 +37,15 @@ bool btnStateChange[BUTTONS];
 
 int updateInterval = 500; //Milliseconds
 
-int mode = 0; //0 = Normal, 1 = Set time
+#define NORMAL 0
+#define SET_TIME 1
+int mode = NORMAL;
+
+DateTime newTime;
+
+#define HOUR 0
+#define MINUTE 1
+int menuItem = HOUR;
 
 unsigned long lastUpdate = 0;
 
@@ -84,7 +92,7 @@ void setup() {
 }
 
 /* -------------------------------------------
-  LOOP
+  MAIN LOOP
   -------------------------------------------*/
 void loop() {
 
@@ -93,31 +101,142 @@ void loop() {
   if (checkSerialInp()) {
     Serial.println("Serial input success!");
   }
-
-
-  if (millis() - lastUpdate > updateInterval) {
-    lastUpdate = millis();
-
-    //Serial.println("Temp: " + (String)rtc.getTemperature());
-
-    DateTime nowRTC = rtc.now();
-    if (rtc.lostPower()) {
-      digitalWrite(OE, (nowRTC.second() % 2) == 0);
-      Serial.println("Set new time!");
-    } else {
-      Serial.println("Displaying time: " + timeToStr(nowRTC));
-
-      timeToData(nowRTC);
-      updateShiftRegister(data);
+  if (rtc.lostPower()) {
+    digitalWrite(OE, ((millis() / 1000) % 2) == 0);
+    Serial.println("Set new time!");
+  } else if (mode == NORMAL) {
+    if (millis() - lastUpdate > updateInterval) {
+      lastUpdate = millis();
+      //Serial.println("Temp: " + (String)rtc.getTemperature());
+      displayCurrentTime();
+    }
+  } else if (mode == SET_TIME) {
+    switchMenu();
+    if (millis() - lastUpdate > updateInterval) {
+      lastUpdate = millis();
+      changeNewTime();
     }
   }
-
   delay(10);
 }
 
 /* -------------------------------------------
-  FUNCTIONS
+  BUTTON FUNCTIONS
   -------------------------------------------*/
+void checkButtons() {
+  for (int i = 0; i < BUTTONS; i++) {
+    bool newState = !digitalRead(btnPIN[i]);
+    btnStateChange[i] = newState != btnState[i];
+    btnState[i] = newState;
+  }
+  for (int i = 0; i < BUTTONS; i++) {
+    if (btnStateChange[i]) {
+      Serial.println("Button " + (String)i + " changed state to: " + (String)btnState[i]);
+
+      if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3] && (mode == NORMAL || rtc.lostPower())) {
+        Serial.println("Entering buttonbased time-setting!");
+        digitalWrite(OE, LOW);
+        mode = SET_TIME;
+        newTime = rtc.now();
+        menuItem = HOUR;
+
+      }  else if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3] && mode == SET_TIME) {
+        Serial.println("Leaving buttonbased time-setting. Sending new time to RTC!");
+        mode = NORMAL;
+        rtc.adjust(newTime);
+
+        //Fancy blink animation
+        for (int y = 100; 20 < y; y = y - 20) {
+          digitalWrite(OE, HIGH);
+          delay(y);
+          digitalWrite(OE, LOW);
+          delay(y);
+        }
+      }
+    }
+  }
+}
+
+/* -------------------------------------------
+  SET TIME FUNCTIONS
+  -------------------------------------------*/
+void switchMenu() {
+  if (!btnState[0] && !btnState[1] && btnState[2] && !btnState[3]) {
+    menuItem = HOUR;
+    Serial.println("Changing Hour");
+
+  } else if (!btnState[0] && btnState[1] && !btnState[2] && !btnState[3]) {
+    menuItem = MINUTE;
+    Serial.println("Changing Minute");
+  }
+}
+void changeNewTime() {
+
+  int hour = newTime.hour();
+  int minute = newTime.minute();
+
+  //Change hour
+  if (menuItem == HOUR) {
+    if (!btnState[0] && !btnState[1] && !btnState[2] && btnState[3]) {
+      hour++;
+      if (hour > 23) {
+        hour = 0;
+      }
+      Serial.println("Hour: " + (String)hour);
+    } else if (btnState[0] && !btnState[1] && !btnState[2] && !btnState[3]) {
+      hour--;
+      if (hour < 0) {
+        hour = 23;
+      }
+      Serial.println("Hour: " + (String)hour);
+    }
+
+    //Change minute
+  } else if (menuItem == MINUTE) {
+    if (!btnState[0] && !btnState[1] && !btnState[2] && btnState[3]) {
+      minute ++;
+      if (minute > 59) {
+        minute = 0;
+        hour++;
+      }
+      Serial.println("Minute: " + (String)minute);
+    } else if (btnState[0] && !btnState[1] && !btnState[2] && !btnState[3]) {
+      minute--;
+      if (minute < 0) {
+        minute = 59;
+        hour--;
+      }
+      Serial.println("Minute: " + (String)minute);
+    }
+  }
+
+  newTime = DateTime(2021, 01, 01, hour, minute, 00);
+
+  //If middle buttons are pressed, leave the menu.
+  //if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
+  // digitalWrite(OE, LOW);
+  //  return temp;
+  // }
+
+  //digitalWrite(OE, ((millis() / 1000) % 2) == 0);
+
+  timeToData(newTime, ((millis() / 1000) % 2) == 0);
+  updateShiftRegister(data);
+
+  delay(10);
+
+}
+/* -------------------------------------------
+  TIME DISPLAY FUNCTIONS
+  -------------------------------------------*/
+void displayCurrentTime() {
+  DateTime nowRTC = rtc.now();
+  Serial.println("Displaying time: " + timeToStr(nowRTC));
+
+  timeToData(nowRTC);
+  updateShiftRegister(data);
+}
+
 int intToNum(int inp, bool dot) {
   int extra = 0;
   if (dot) {
@@ -159,88 +278,21 @@ void timeToData(DateTime timeNow) {
   data[1] = intToNum(floor(minute / 10), false);
   data[0] = intToNum(floor(minute % 10), false);
 }
+void timeToData(DateTime timeNow, bool dot) {
+  int hour = timeNow.hour();
+  int minute = timeNow.minute();
+  int second = timeNow.second();
+
+  data[3] = intToNum(floor(hour / 10), dot);
+  data[2] = intToNum(floor(hour % 10), dot);
+  data[1] = intToNum(floor(minute / 10), dot);
+  data[0] = intToNum(floor(minute % 10), dot);
+}
 
 String timeToStr(DateTime timeNow) {
   int hour = timeNow.hour();
   int minute = timeNow.minute();
   return (String)(int)floor(hour / 10) + (String)(int)floor(hour % 10) + ":" + (String)(int)floor(minute / 10) + (String)(int)floor(minute % 10);
-}
-
-void checkButtons() {
-  for (int i = 0; i < BUTTONS; i++) {
-    bool newState = !digitalRead(btnPIN[i]);
-    btnStateChange[i] = newState != btnState[i];
-    btnState[i] = newState;
-    if (btnStateChange[i]) {
-      Serial.println("Button " + (String)i + " changed state to: " + (String)btnState[i]);
-    }
-  }
-
-  if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
-    Serial.println("Entering buttonbased time-setting!");
-    setNewTime(rtc.now());
-  }
-}
-
-DateTime setNewTime(DateTime timeNow) {
-  //Make sure the middle buttons are unpressed before proceeding
-  while (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
-    digitalWrite(OE, ((millis() / 1000) % 2) == 0);
-    delay(500);
-  }
-
-  int hour = timeNow.hour();
-  int minute = timeNow.minute();
-  int var = 0;
-  Serial.println("Entered");
-
-  while (true) {
-
-    if (!btnState[0] && !btnState[1] && btnState[2] && !btnState[3]) {
-      var = 0;
-      Serial.println("Changing Hour");
-
-    } else if (!btnState[0] && btnState[1] && !btnState[2] && !btnState[3]) {
-      var = 1;
-      Serial.println("Changing Minute");
-    }
-
-    //Change hour
-    if (var == 0) {
-      if (!btnState[0] && !btnState[1] && !btnState[2] && btnState[3]) {
-        hour ++;
-        Serial.println("Hour: " + (String)hour);
-      } else if (btnState[0] && !btnState[1] && !btnState[2] && !btnState[3]) {
-        hour--;
-        Serial.println("Hour: " + (String)hour);
-      }
-
-      //Change minute
-    } else if (var == 1) {
-      if (!btnState[0] && !btnState[1] && !btnState[2] && btnState[3]) {
-        minute ++;
-        Serial.println("Minute: " + (String)minute);
-      } else if (btnState[0] && !btnState[1] && !btnState[2] && !btnState[3]) {
-        minute--;
-        Serial.println("Minute: " + (String)minute);
-      }
-    }
-
-    DateTime temp = DateTime(2021, 01, 01, hour, minute, 00);
-
-    //If middle buttons are pressed, leave the menu.
-    if (!btnState[0] && btnState[1] && btnState[2] && !btnState[3]) {
-      digitalWrite(OE, LOW);
-      return temp;
-    }
-
-    digitalWrite(OE, ((millis() / 1000) % 2) == 0);
-
-    timeToData(temp);
-    updateShiftRegister(data);
-
-    delay(10);
-  }
 }
 
 void updateShiftRegister(byte data[]) {
@@ -253,6 +305,9 @@ void updateShiftRegister(byte data[]) {
   digitalWrite(RCLK, HIGH);
 }
 
+/* -------------------------------------------
+  SERIAL FUNCTIONS
+  -------------------------------------------*/
 bool checkSerialInp() {
   // Checks for serial commands.
   // The inputs must be structured in the form *command*:*variables*x, example:
