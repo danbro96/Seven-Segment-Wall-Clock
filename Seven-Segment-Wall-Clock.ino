@@ -155,6 +155,8 @@ void checkButtons() {
       }
     }
   }
+
+  //When in SET_TIME mode, return to NORMAL and set new time if no inputs are made within 10 seconds.
   if (millis() - lastInput > 10000 && mode == SET_TIME) {
     Serial.println("Leaving buttonbased time-setting due to inactivity. Sending new time to RTC!");
     mode = NORMAL;
