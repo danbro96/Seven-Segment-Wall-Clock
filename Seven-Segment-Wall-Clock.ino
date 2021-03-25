@@ -223,7 +223,7 @@ void changeNewTime() {
     }
   }
 
-  newTime = DateTime(2021, 01, 01, hour, minute, 00);
+  newTime = DateTime(newTime.year(), newTime.month(), newTime.day(), hour, minute, 00);
 }
 void displayNewTime() {
   //digitalWrite(OE, ((millis() / 1000) % 2) == 0);
