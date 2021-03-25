@@ -2,8 +2,8 @@
   7 segment display clock controller
   Made by Anton Alfonsson and Daniel Broström
 
-  Version 0.0
-  2021-03-23
+  Version 1.0
+  2021-03-25
 */
 
 /* -------------------------------------------
